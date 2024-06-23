@@ -8,10 +8,10 @@ import (
 )
 
 type Client struct {
-	Hub  *Hub
-	Conn *websocket.Conn
-	Send chan []byte
-	ID   string
+	Hub      *Hub
+	Conn     *websocket.Conn
+	Send     chan []byte
+	Username string
 }
 
 const (

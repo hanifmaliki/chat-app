@@ -19,9 +19,12 @@ func SetupRoutes(mux *http.ServeMux, db *gorm.DB) {
 	roomRepo := repository.NewRoomRepository(db)
 	roomUsecase := usecase.NewRoomUseCase(roomRepo)
 
+	roomUserRepo := repository.NewRoomUserRepository(db)
+	roomUserUsecase := usecase.NewRoomUserUseCase(roomUserRepo)
+
 	hub := websocket.NewHub()
 	go hub.Run()
-	chatController := controller.NewChatController(userUsecase, roomUsecase, hub)
+	chatController := controller.NewChatController(userUsecase, roomUsecase, roomUserUsecase, hub)
 
 	mux.HandleFunc("/register", userController.Register)
 	mux.HandleFunc("/login", userController.Login)

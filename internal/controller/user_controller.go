@@ -22,7 +22,7 @@ func NewUserController(userUsecase *usecase.UserUseCase) *UserController {
 	}
 }
 
-func (cc *UserController) Register(w http.ResponseWriter, r *http.Request) {
+func (uc *UserController) Register(w http.ResponseWriter, r *http.Request) {
 	var req model.Credential
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -36,7 +36,7 @@ func (cc *UserController) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := cc.userUsecase.Register(&req)
+	user, err := uc.userUsecase.Register(&req)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register user")
 		response := pkg_model.Response[any]{
@@ -57,7 +57,7 @@ func (cc *UserController) Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func (cc *UserController) Login(w http.ResponseWriter, r *http.Request) {
+func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 	var req model.Credential
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -71,7 +71,7 @@ func (cc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := cc.userUsecase.Login(&req)
+	user, err := uc.userUsecase.Login(&req)
 	if err != nil {
 		log.Error().Err(err).Msg("Invalid username or password")
 		response := pkg_model.Response[any]{
