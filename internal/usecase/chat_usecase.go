@@ -5,19 +5,19 @@ import (
 	"github.com/hanifmaliki/chat-app/internal/repository"
 )
 
-type ChatService struct {
+type ChatUseCase struct {
 	messageRepo repository.MessageRepository
 }
 
-func NewChatService(repo repository.MessageRepository) *ChatService {
-	return &ChatService{messageRepo: repo}
+func NewChatService(repo repository.MessageRepository) *ChatUseCase {
+	return &ChatUseCase{messageRepo: repo}
 }
 
-func (s *ChatService) SaveMessage(room, user, content string) error {
+func (s *ChatUseCase) SaveMessage(room, user, content string) error {
 	msg := &model.Message{Room: room, User: user, Content: content}
 	return s.messageRepo.Save(msg)
 }
 
-func (s *ChatService) GetMessages(room string) ([]model.Message, error) {
+func (s *ChatUseCase) GetMessages(room string) ([]model.Message, error) {
 	return s.messageRepo.GetMessages(room)
 }

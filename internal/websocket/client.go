@@ -11,6 +11,7 @@ type Client struct {
 	Hub  *Hub
 	Conn *websocket.Conn
 	Send chan []byte
+	ID   string
 }
 
 const (
@@ -20,7 +21,7 @@ const (
 	maxMessageSize = 512
 )
 
-func (c *Client) ReadPump() {
+func (c *Client) ReadPump(handleMessage func(c *Client, message []byte)) {
 	defer func() {
 		c.Hub.Unregister <- c
 		c.Conn.Close()
@@ -36,7 +37,11 @@ func (c *Client) ReadPump() {
 			}
 			break
 		}
-		c.Hub.Broadcast <- message
+		if handleMessage != nil {
+			handleMessage(c, message)
+		} else {
+			c.Hub.Broadcast <- message
+		}
 	}
 }
 

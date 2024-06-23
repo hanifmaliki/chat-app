@@ -1,18 +1,20 @@
 package websocket
 
 type Hub struct {
-	Clients    map[*Client]bool
-	Broadcast  chan []byte
-	Register   chan *Client
-	Unregister chan *Client
+	Broadcast   chan []byte
+	Register    chan *Client
+	Unregister  chan *Client
+	Clients     map[*Client]bool
+	ClientsByID map[string]*Client
 }
 
 func NewHub() *Hub {
 	return &Hub{
-		Broadcast:  make(chan []byte),
-		Register:   make(chan *Client),
-		Unregister: make(chan *Client),
-		Clients:    make(map[*Client]bool),
+		Broadcast:   make(chan []byte),
+		Register:    make(chan *Client),
+		Unregister:  make(chan *Client),
+		Clients:     make(map[*Client]bool),
+		ClientsByID: make(map[string]*Client),
 	}
 }
 
@@ -21,9 +23,11 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.Register:
 			h.Clients[client] = true
+			h.ClientsByID[client.ID] = client
 		case client := <-h.Unregister:
 			if _, ok := h.Clients[client]; ok {
 				delete(h.Clients, client)
+				delete(h.ClientsByID, client.ID)
 				close(client.Send)
 			}
 		case message := <-h.Broadcast:

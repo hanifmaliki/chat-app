@@ -6,10 +6,11 @@ import (
 
 	"github.com/hanifmaliki/chat-app/internal/controller"
 	"github.com/hanifmaliki/chat-app/internal/repository"
+	routes "github.com/hanifmaliki/chat-app/internal/routes"
 	"github.com/hanifmaliki/chat-app/internal/usecase"
-	"github.com/hanifmaliki/chat-app/internal/websocket"
-	"github.com/hanifmaliki/chat-app/pkg/db"
-	"github.com/hanifmaliki/chat-app/pkg/util"
+	websocket "github.com/hanifmaliki/chat-app/internal/websocket"
+	db "github.com/hanifmaliki/chat-app/pkg/db"
+	util "github.com/hanifmaliki/chat-app/pkg/util"
 )
 
 func main() {
@@ -21,14 +22,14 @@ func main() {
 	}
 
 	messageRepo := repository.NewGormMessageRepository(db)
-	chatService := usecase.NewChatService(messageRepo)
-	hub := websocket.NewHub(chatService)
+	chatUseCase := usecase.NewChatService(messageRepo)
+	hub := websocket.NewHub()
 	go hub.Run()
 
-	chatController := controller.NewChatController(hub)
+	chatController := controller.NewChatController(chatUseCase, hub)
 	mux := http.NewServeMux()
 
-	websocket.SetupRoutes(mux, chatController)
+	routes.SetupRoutes(mux, chatController)
 
 	port := util.GetEnv("PORT", "8080")
 	log.Printf("Server started on :%s\n", port)
