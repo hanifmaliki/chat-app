@@ -52,6 +52,15 @@ func (cc *ChatController) HandleWebSocket(w http.ResponseWriter, r *http.Request
 					targetClient.Send <- []byte("dm:" + c.ID + ":" + msg)
 				}
 			}
+		} else if strings.HasPrefix(string(message), "dm:") {
+			parts := strings.SplitN(string(message), ":", 3)
+			if len(parts) == 3 {
+				targetID := parts[1]
+				msg := parts[2]
+				if targetClient, ok := c.Hub.ClientsByID[targetID]; ok {
+					targetClient.Send <- []byte("dm:" + c.ID + ":" + msg)
+				}
+			}
 		}
 	})
 }
