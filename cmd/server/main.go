@@ -23,7 +23,7 @@ func main() {
 	route.SetupRoutes(mux, db)
 
 	port := util.GetEnv("PORT", "8080")
-	log.Info().Msgf("Server started on :%s\n", port)
+	log.Info().Msgf("Server started on :%s", port)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Fatal().Err(err).Msg("ListenAndServe")
 	}
