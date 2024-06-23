@@ -1,7 +1,7 @@
 package db
 
 import (
-	"github.com/hanifmaliki/chat-app/internal/model"
+	"github.com/hanifmaliki/chat-app/internal/migration"
 	"github.com/hanifmaliki/chat-app/pkg/util"
 
 	gormigrate "github.com/go-gormigrate/gormigrate/v2"
@@ -16,17 +16,7 @@ func NewGormDB() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
-		{
-			ID: "20230621_create_messages_table",
-			Migrate: func(tx *gorm.DB) error {
-				return tx.AutoMigrate(&model.Message{})
-			},
-			Rollback: func(tx *gorm.DB) error {
-				return tx.Migrator().DropTable("messages")
-			},
-		},
-	})
+	m := gormigrate.New(db, gormigrate.DefaultOptions, migration.Migrations)
 
 	if err := m.Migrate(); err != nil {
 		return nil, err

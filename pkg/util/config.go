@@ -1,16 +1,16 @@
 package util
 
 import (
-	"log"
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog/log"
 )
 
 func LoadConfig() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+		log.Fatal().Err(err).Msg("Error loading .env file")
 	}
 }
 

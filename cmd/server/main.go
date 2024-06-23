@@ -1,16 +1,13 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
-	"github.com/hanifmaliki/chat-app/internal/controller"
-	"github.com/hanifmaliki/chat-app/internal/repository"
-	routes "github.com/hanifmaliki/chat-app/internal/routes"
-	"github.com/hanifmaliki/chat-app/internal/usecase"
-	websocket "github.com/hanifmaliki/chat-app/internal/websocket"
-	db "github.com/hanifmaliki/chat-app/pkg/db"
+	db "github.com/hanifmaliki/chat-app/internal/db"
+	route "github.com/hanifmaliki/chat-app/internal/route"
 	util "github.com/hanifmaliki/chat-app/pkg/util"
+
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -18,22 +15,16 @@ func main() {
 
 	db, err := db.NewGormDB()
 	if err != nil {
-		log.Fatal("Error initializing storage: ", err)
+		log.Fatal().Err(err).Msg("Error initializing storage")
 	}
 
-	messageRepo := repository.NewGormMessageRepository(db)
-	chatUseCase := usecase.NewChatService(messageRepo)
-	hub := websocket.NewHub()
-	go hub.Run()
-
-	chatController := controller.NewChatController(chatUseCase, hub)
 	mux := http.NewServeMux()
 
-	routes.SetupRoutes(mux, chatController)
+	route.SetupRoutes(mux, db)
 
 	port := util.GetEnv("PORT", "8080")
-	log.Printf("Server started on :%s\n", port)
+	log.Info().Msgf("Server started on :%s\n", port)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		log.Fatal().Err(err).Msg("ListenAndServe")
 	}
 }

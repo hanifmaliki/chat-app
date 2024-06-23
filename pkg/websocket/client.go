@@ -1,10 +1,10 @@
 package websocket
 
 import (
-	"log"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 )
 
 type Client struct {
@@ -33,7 +33,7 @@ func (c *Client) ReadPump(handleMessage func(c *Client, message []byte)) {
 		_, message, err := c.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				log.Error().Err(err).Msg("Failed to read message")
 			}
 			break
 		}
