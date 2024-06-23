@@ -125,9 +125,12 @@ func (cc *ChatController) HandleWebSocket(w http.ResponseWriter, r *http.Request
 					c.Send <- []byte("Failed broadcast to room " + roomName)
 				}
 				for _, ru := range room.RoomUsers {
+					if ru.User.Username == c.Username {
+						continue
+					}
 					if targetClient, ok := c.Hub.ClientsByUsername[ru.User.Username]; ok {
 						targetClient.Send <- []byte("Broadcast from " + roomName + " (" + c.Username + "): " + parts[3])
-						c.Send <- []byte("Successfully broadcast to room " + roomName + " (" + c.Username + ")")
+						c.Send <- []byte("Successfully broadcast to room " + roomName + " (" + ru.User.Username + ")")
 					}
 				}
 			}
