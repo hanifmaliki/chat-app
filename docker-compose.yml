@@ -9,5 +9,3 @@ services:
       - .:/app
     env_file:
       - .env
-    environment:
-      - GIN_MODE=release

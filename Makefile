@@ -4,5 +4,5 @@ run-server:
 run-client:
 	go run ./cmd/client/main.go
 
-run-docker:
+build-docker:
 	docker-compose up --build
