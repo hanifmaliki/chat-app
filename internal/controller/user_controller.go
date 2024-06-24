@@ -27,6 +27,7 @@ func (uc *UserController) Register(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Error().Err(err).Msg("Invalid request payload")
+		w.WriteHeader(http.StatusBadRequest) // Set the status code
 		response := pkg_model.Response[any]{
 			Code:    http.StatusBadRequest,
 			Success: false,
@@ -39,6 +40,7 @@ func (uc *UserController) Register(w http.ResponseWriter, r *http.Request) {
 	user, err := uc.userUsecase.Register(&req)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register user")
+		w.WriteHeader(http.StatusInternalServerError) // Set the status code
 		response := pkg_model.Response[any]{
 			Code:    http.StatusInternalServerError,
 			Success: false,
@@ -48,6 +50,7 @@ func (uc *UserController) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusCreated) // Set the status code
 	response := pkg_model.Response[*entity.User]{
 		Code:    http.StatusCreated,
 		Success: true,
@@ -62,6 +65,7 @@ func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Error().Err(err).Msg("Invalid request payload")
+		w.WriteHeader(http.StatusBadRequest) // Set the status code
 		response := pkg_model.Response[any]{
 			Code:    http.StatusBadRequest,
 			Success: false,
@@ -74,6 +78,7 @@ func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := uc.userUsecase.Login(&req)
 	if err != nil {
 		log.Error().Err(err).Msg("Invalid username or password")
+		w.WriteHeader(http.StatusUnauthorized) // Set the status code
 		response := pkg_model.Response[any]{
 			Code:    http.StatusUnauthorized,
 			Success: false,
@@ -83,6 +88,7 @@ func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusOK) // Set the status code
 	response := pkg_model.Response[*entity.User]{
 		Code:    http.StatusOK,
 		Success: true,

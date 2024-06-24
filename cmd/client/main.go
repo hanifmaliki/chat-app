@@ -11,164 +11,144 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hanifmaliki/chat-app/internal/model"
-
 	"github.com/gorilla/websocket"
+	"github.com/hanifmaliki/chat-app/internal/model"
 )
 
 func main() {
-	reader := bufio.NewReader(os.Stdin)
+	address := promptInput("Enter server address: (localhost:8080) ", "localhost:8080")
 
-	fmt.Print("Enter server address: (localhost:8080) ")
-	address, _ := reader.ReadString('\n')
-	address = strings.TrimSpace(address)
-	if address == "" {
-		address = "localhost:8080"
+	if !healthCheck(address) {
+		log.Fatalf("Health check failed")
 	}
 
-	// Health check
-	// resp, err := http.Get("http://" + address + "/healthz")
-	// if err != nil {
-	// 	log.Fatalf("Failed to check health: %v\n", err)
-	// }
-	// defer resp.Body.Close()
-
-	// body, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	log.Fatalf("Failed to read health check response: %v\n", err)
-	// }
-
-	// if string(body) != "ok" {
-	// 	log.Fatalf("Health check failed: %s\n", body)
-	// }
-
-LOGIN:
-
-	// Prompt for login or register
-	fmt.Print("Do you want to login or register? (login/register): ")
-	action := ""
 	for {
-		action, _ = reader.ReadString('\n')
-		action = strings.TrimSpace(action)
-
-		if action == "login" || action == "register" {
-			break
-		} else {
-			log.Println("No action")
+		action := promptInput("Do you want to login or register? (login/register): ", "")
+		if action != "login" && action != "register" {
+			log.Println("Invalid action, please enter 'login' or 'register'.")
+			continue
 		}
+
+		username := promptInput("Enter username: ", "")
+		password := promptInput("Enter password: ", "")
+
+		if !performAuth(address, action, username, password) {
+			if action == "register" {
+				continue
+			} else {
+				log.Fatalf("%s failed", action)
+			}
+		}
+
+		conn := connectWebSocket(address, username)
+		defer conn.Close()
+
+		go readMessages(conn)
+		mainLoop(conn)
+	}
+}
+
+func promptInput(prompt, defaultValue string) string {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print(prompt)
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return defaultValue
+	}
+	return input
+}
+
+func healthCheck(address string) bool {
+	resp, err := http.Get("http://" + address + "/health")
+	if err != nil {
+		log.Printf("Failed to check health: %v\n", err)
+		return false
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Failed to read health check response: %v\n", err)
+		return false
 	}
 
-	// Read username and password
-	fmt.Print("Enter username: ")
-	username, _ := reader.ReadString('\n')
-	username = strings.TrimSpace(username)
+	return string(body) == "ok"
+}
 
-	fmt.Print("Enter password: ")
-	password, _ := reader.ReadString('\n')
-	password = strings.TrimSpace(password)
-
+func performAuth(address, action, username, password string) bool {
 	credentials := model.Credential{
 		Username: username,
 		Password: password,
 	}
 
-	// Convert credentials to JSON
 	jsonData, err := json.Marshal(credentials)
 	if err != nil {
 		log.Fatalf("Failed to marshal credentials: %v\n", err)
 	}
 
-	// Send POST request to login or register endpoint
-	var endpoint string
-	if action == "login" {
-		endpoint = "http://" + address + "/login"
-	} else if action == "register" {
-		endpoint = "http://" + address + "/register"
-	} else {
-		log.Fatalf("Invalid action: %s\n", action)
-	}
-
+	endpoint := "http://" + address + "/" + action
 	resp, err := http.Post(endpoint, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Fatalf("Failed to %s: %v\n", action, err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("%s failed: %s\n", action, body)
+		log.Printf("%s failed: %s\n", action, body)
+		return false
 	}
 
-	if action == "register" {
-		goto LOGIN
-	}
+	return true
+}
 
-	// Connect to WebSocket
+func connectWebSocket(address, username string) *websocket.Conn {
 	conn, _, err := websocket.DefaultDialer.Dial("ws://"+address+"/chat/ws?username="+username, nil)
 	if err != nil {
-		log.Fatal("dial:", err)
+		log.Fatalf("Failed to connect to WebSocket: %v\n", err)
 	}
-	defer conn.Close()
+	return conn
+}
 
-	go func() {
-		for {
-			_, message, err := conn.ReadMessage()
-			if err != nil {
-				log.Println("Error:", err)
-				return
-			}
-			fmt.Println(string(message))
+func readMessages(conn *websocket.Conn) {
+	for {
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf("Read error: %v\n", err)
+			return
 		}
-	}()
+		fmt.Println(string(message))
+	}
+}
 
+func mainLoop(conn *websocket.Conn) {
 	for {
 		fmt.Print("Options:\n[1] Direct Message\n[2] Create Chat Room\n[3] Join Chat Room\n[4] Leave Chat Room\n[5] Send Message to Chat Room\nEnter option: ")
-		option, _ := reader.ReadString('\n')
-		option = strings.TrimSpace(option)
+		option := promptInput("", "")
 
 		switch option {
 		case "1":
-			fmt.Print("Enter username to direct message: ")
-			targetUsername, _ := reader.ReadString('\n')
-			targetUsername = strings.TrimSpace(targetUsername)
-
-			fmt.Print("Enter message: ")
-			message, _ := reader.ReadString('\n')
-			message = strings.TrimSpace(message)
-
-			sendDirectMessage(conn, targetUsername, message)
+			targetUsername := promptInput("Enter username to direct message: ", "")
+			message := promptInput("Enter message: ", "")
+			sendMessage(conn, "dm:"+targetUsername+":"+message)
 
 		case "2":
-			fmt.Print("Enter chat room name: ")
-			chatRoomName, _ := reader.ReadString('\n')
-			chatRoomName = strings.TrimSpace(chatRoomName)
-
-			createChatRoom(conn, chatRoomName)
+			chatRoomName := promptInput("Enter chat room name: ", "")
+			sendMessage(conn, "room:create:"+chatRoomName)
 
 		case "3":
-			fmt.Print("Enter chat room name: ")
-			chatRoomName, _ := reader.ReadString('\n')
-			chatRoomName = strings.TrimSpace(chatRoomName)
-
-			joinChatRoom(conn, chatRoomName)
+			chatRoomName := promptInput("Enter chat room name: ", "")
+			sendMessage(conn, "room:join:"+chatRoomName)
 
 		case "4":
-			fmt.Print("Enter chat room name: ")
-			chatRoomName, _ := reader.ReadString('\n')
-			chatRoomName = strings.TrimSpace(chatRoomName)
-
-			leaveChatRoom(conn, chatRoomName)
+			chatRoomName := promptInput("Enter chat room name: ", "")
+			sendMessage(conn, "room:leave:"+chatRoomName)
 
 		case "5":
-			fmt.Print("Enter chat room name: ")
-			chatRoomName, _ := reader.ReadString('\n')
-			chatRoomName = strings.TrimSpace(chatRoomName)
-
-			fmt.Print("Enter message: ")
-			message, _ := reader.ReadString('\n')
-			message = strings.TrimSpace(message)
-
-			messageChatRoom(conn, chatRoomName, message)
+			chatRoomName := promptInput("Enter chat room name: ", "")
+			message := promptInput("Enter message: ", "")
+			sendMessage(conn, "room:broadcast:"+chatRoomName+":"+message)
 
 		default:
 			fmt.Println("Invalid option")
@@ -176,37 +156,9 @@ LOGIN:
 	}
 }
 
-func sendDirectMessage(conn *websocket.Conn, username string, message string) {
-	err := conn.WriteMessage(websocket.TextMessage, []byte("dm:"+username+":"+message))
+func sendMessage(conn *websocket.Conn, message string) {
+	err := conn.WriteMessage(websocket.TextMessage, []byte(message))
 	if err != nil {
-		log.Println("Failed to send direct message:", err)
-	}
-}
-
-func createChatRoom(conn *websocket.Conn, chatRoomName string) {
-	err := conn.WriteMessage(websocket.TextMessage, []byte("room:create:"+chatRoomName))
-	if err != nil {
-		log.Println("Failed to create chat room:", err)
-	}
-}
-
-func joinChatRoom(conn *websocket.Conn, chatRoomName string) {
-	err := conn.WriteMessage(websocket.TextMessage, []byte("room:join:"+chatRoomName))
-	if err != nil {
-		log.Println("Failed to join chat room:", err)
-	}
-}
-
-func leaveChatRoom(conn *websocket.Conn, chatRoomName string) {
-	err := conn.WriteMessage(websocket.TextMessage, []byte("room:leave:"+chatRoomName))
-	if err != nil {
-		log.Println("Failed to leave chat room:", err)
-	}
-}
-
-func messageChatRoom(conn *websocket.Conn, chatRoomName string, message string) {
-	err := conn.WriteMessage(websocket.TextMessage, []byte("room:broadcast:"+chatRoomName+":"+message))
-	if err != nil {
-		log.Println("Failed to send message to chat room:", err)
+		log.Printf("Failed to send message: %v\n", err)
 	}
 }

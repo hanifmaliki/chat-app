@@ -42,6 +42,7 @@ func (cc *ChatController) HandleWebSocket(w http.ResponseWriter, r *http.Request
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to upgrade connection")
+		w.WriteHeader(http.StatusInternalServerError) // Set the status code
 		response := pkg_model.Response[any]{
 			Code:    http.StatusInternalServerError,
 			Success: false,
@@ -50,6 +51,7 @@ func (cc *ChatController) HandleWebSocket(w http.ResponseWriter, r *http.Request
 		json.NewEncoder(w).Encode(response)
 		return
 	}
+
 	username := r.URL.Query().Get("username")
 	client := &websocket.Client{Hub: cc.hub, Conn: conn, Send: make(chan []byte, 256), Username: username}
 	client.Hub.Register <- client
@@ -65,7 +67,11 @@ func (cc *ChatController) HandleWebSocket(w http.ResponseWriter, r *http.Request
 				if targetClient, ok := c.Hub.ClientsByUsername[targetID]; ok {
 					targetClient.Send <- []byte("DM from " + c.Username + ": " + dmMessage)
 					c.Send <- []byte("Successfully sent DM to " + targetID)
+				} else {
+					c.Send <- []byte("User " + targetID + " not found")
 				}
+			} else {
+				c.Send <- []byte("Invalid DM format")
 			}
 		} else if strings.HasPrefix(msg, "room:create:") {
 			parts := strings.SplitN(msg, ":", 3)
@@ -73,10 +79,12 @@ func (cc *ChatController) HandleWebSocket(w http.ResponseWriter, r *http.Request
 				roomName := parts[2]
 				err := cc.roomUsecase.Create(&entity.Room{Name: roomName}, c.Username)
 				if err != nil {
-					c.Send <- []byte("Failed create room " + roomName)
+					c.Send <- []byte("Failed to create room " + roomName)
 				} else {
 					c.Send <- []byte("Room " + roomName + " created")
 				}
+			} else {
+				c.Send <- []byte("Invalid room create format")
 			}
 		} else if strings.HasPrefix(msg, "room:join:") {
 			parts := strings.SplitN(msg, ":", 3)
@@ -84,18 +92,22 @@ func (cc *ChatController) HandleWebSocket(w http.ResponseWriter, r *http.Request
 				roomName := parts[2]
 				room, err := cc.roomUsecase.FindOne(&entity.Room{Name: roomName}, &pkg_model.Query{})
 				if err != nil {
-					c.Send <- []byte("Failed join room " + roomName)
-				}
-				user, err := cc.userUsecase.FindOne(&entity.User{Username: c.Username}, &pkg_model.Query{})
-				if err != nil {
-					c.Send <- []byte("Failed join room " + roomName)
-				}
-				err = cc.roomUserUsecase.Create(&entity.RoomUser{RoomID: room.ID, UserID: user.ID}, c.Username)
-				if err != nil {
-					c.Send <- []byte("Failed join room " + roomName)
+					c.Send <- []byte("Failed to join room " + roomName)
 				} else {
-					c.Send <- []byte("Joined room " + roomName)
+					user, err := cc.userUsecase.FindOne(&entity.User{Username: c.Username}, &pkg_model.Query{})
+					if err != nil {
+						c.Send <- []byte("Failed to find user")
+					} else {
+						err = cc.roomUserUsecase.Create(&entity.RoomUser{RoomID: room.ID, UserID: user.ID}, c.Username)
+						if err != nil {
+							c.Send <- []byte("Failed to join room " + roomName)
+						} else {
+							c.Send <- []byte("Joined room " + roomName)
+						}
+					}
 				}
+			} else {
+				c.Send <- []byte("Invalid room join format")
 			}
 		} else if strings.HasPrefix(msg, "room:leave:") {
 			parts := strings.SplitN(msg, ":", 3)
@@ -103,18 +115,22 @@ func (cc *ChatController) HandleWebSocket(w http.ResponseWriter, r *http.Request
 				roomName := parts[2]
 				room, err := cc.roomUsecase.FindOne(&entity.Room{Name: roomName}, &pkg_model.Query{})
 				if err != nil {
-					c.Send <- []byte("Failed leave room " + roomName)
-				}
-				user, err := cc.userUsecase.FindOne(&entity.User{Username: c.Username}, &pkg_model.Query{})
-				if err != nil {
-					c.Send <- []byte("Failed leave room " + roomName)
-				}
-				err = cc.roomUserUsecase.Delete(&entity.RoomUser{RoomID: room.ID, UserID: user.ID}, c.Username)
-				if err != nil {
-					c.Send <- []byte("Failed leave room " + roomName)
+					c.Send <- []byte("Failed to leave room " + roomName)
 				} else {
-					c.Send <- []byte("Left room " + roomName)
+					user, err := cc.userUsecase.FindOne(&entity.User{Username: c.Username}, &pkg_model.Query{})
+					if err != nil {
+						c.Send <- []byte("Failed to find user")
+					} else {
+						err = cc.roomUserUsecase.Delete(&entity.RoomUser{RoomID: room.ID, UserID: user.ID}, c.Username)
+						if err != nil {
+							c.Send <- []byte("Failed to leave room " + roomName)
+						} else {
+							c.Send <- []byte("Left room " + roomName)
+						}
+					}
 				}
+			} else {
+				c.Send <- []byte("Invalid room leave format")
 			}
 		} else if strings.HasPrefix(msg, "room:broadcast:") {
 			parts := strings.SplitN(msg, ":", 4)
@@ -122,18 +138,23 @@ func (cc *ChatController) HandleWebSocket(w http.ResponseWriter, r *http.Request
 				roomName := parts[2]
 				room, err := cc.roomUsecase.FindOne(&entity.Room{Name: roomName}, &pkg_model.Query{Expand: []string{"RoomUsers.User"}})
 				if err != nil {
-					c.Send <- []byte("Failed broadcast to room " + roomName)
-				}
-				for _, ru := range room.RoomUsers {
-					if ru.User.Username == c.Username {
-						continue
+					c.Send <- []byte("Failed to broadcast to room " + roomName)
+				} else {
+					for _, ru := range room.RoomUsers {
+						if ru.User.Username == c.Username {
+							continue
+						}
+						if targetClient, ok := c.Hub.ClientsByUsername[ru.User.Username]; ok {
+							targetClient.Send <- []byte("Broadcast from " + roomName + " (" + c.Username + "): " + parts[3])
+							c.Send <- []byte("Successfully broadcast to room " + roomName + " (" + ru.User.Username + ")")
+						}
 					}
-					if targetClient, ok := c.Hub.ClientsByUsername[ru.User.Username]; ok {
-						targetClient.Send <- []byte("Broadcast from " + roomName + " (" + c.Username + "): " + parts[3])
-						c.Send <- []byte("Successfully broadcast to room " + roomName + " (" + ru.User.Username + ")")
-					}
 				}
+			} else {
+				c.Send <- []byte("Invalid room broadcast format")
 			}
+		} else {
+			c.Send <- []byte("Unknown command")
 		}
 	})
 }
