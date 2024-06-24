@@ -28,5 +28,5 @@ func SetupRoutes(mux *http.ServeMux, db *gorm.DB) {
 
 	mux.HandleFunc("/register", userController.Register)
 	mux.HandleFunc("/login", userController.Login)
-	mux.HandleFunc("/ws", chatController.HandleWebSocket)
+	mux.HandleFunc("/chat/ws", chatController.HandleWebSocket)
 }
