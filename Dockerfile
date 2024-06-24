@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.18-alpine AS builder
+FROM golang:1.22-alpine3.20 AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY . ./
 RUN go build -o /chat-app cmd/server/main.go
 
 # Run stage
-FROM alpine:latest
+FROM alpine:3.20
 
 WORKDIR /root/
 
