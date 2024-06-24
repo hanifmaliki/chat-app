@@ -1,6 +1,10 @@
 # Build stage
 FROM golang:1.22-alpine3.20 AS builder
 
+ENV CGO_ENABLED=1
+
+RUN apk update && apk add --no-cache gcc
+
 WORKDIR /app
 
 COPY go.mod ./
@@ -16,7 +20,9 @@ FROM alpine:3.20
 
 ENV CGO_ENABLED=1
 
-WORKDIR /root/
+RUN apk update && apk add --no-cache gcc
+
+WORKDIR /app
 
 COPY --from=builder /chat-app .
 COPY .env .
