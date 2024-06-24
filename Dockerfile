@@ -24,7 +24,7 @@ RUN apk add --no-cache --update build-base
 
 WORKDIR /app
 
-COPY --from=builder /chat-app .
+COPY --from=builder ./chat-app .
 COPY .env .
 
 EXPOSE 8080
