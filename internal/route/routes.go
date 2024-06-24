@@ -26,6 +26,7 @@ func SetupRoutes(mux *http.ServeMux, db *gorm.DB) {
 	go hub.Run()
 	chatController := controller.NewChatController(userUsecase, roomUsecase, roomUserUsecase, hub)
 
+	mux.HandleFunc("/health", controller.HealthCheckHandler)
 	mux.HandleFunc("/register", userController.Register)
 	mux.HandleFunc("/login", userController.Login)
 	mux.HandleFunc("/chat/ws", chatController.HandleWebSocket)

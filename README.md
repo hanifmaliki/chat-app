@@ -1,10 +1,16 @@
-# chat-app
+# Chat App
 
-## run-server
-	go run ./cmd/server/main.go
+## Setup
+Copy the example environment file to create your own:
+`cp .env.example .env`
 
-## run-client
-	go run ./cmd/client/main.go
+# Running the Application
 
-## run-docker
-	docker-compose up --build
+## Running the Server
+`go run ./cmd/server/main.go`
+
+## Running the Client
+`go run ./cmd/client/main.go`
+
+## Running with Docker
+`docker-compose up --build`
